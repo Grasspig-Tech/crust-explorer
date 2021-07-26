@@ -1,0 +1,175 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="crust.explorer.mapper.RewardSlashMapper">
+
+    <update id="createTable" parameterType="String">
+        CREATE TABLE If Not Exists `ce_reward_slash_${tableNo}` (
+          `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
+          `block_num` int(11) DEFAULT NULL COMMENT '区块号：2228117',
+          `block_timestamp` int(11) DEFAULT NULL COMMENT '区块打包时间:1625120364',
+          `event_id` varchar(100) DEFAULT NULL COMMENT '事件id:Reward',
+          `event_idx` int(11) DEFAULT NULL COMMENT '事件idx:49',
+          `event_index` varchar(15) DEFAULT NULL COMMENT '事件index:2228117-49',
+          `event_sort` varchar(15) DEFAULT NULL COMMENT '事件sort:22281170001',
+          `extrinsic_idx` int(11) DEFAULT NULL COMMENT '交易idx:13',
+          `extrinsic_hash` varchar(70) DEFAULT NULL COMMENT '交易hash:0xc0d285261be7594e6a1536aa48eb0917ed1c68435f11bb9460ae121d0486e876',
+          `validator_stash` varchar(55) DEFAULT NULL COMMENT '验证人账户地址*****************要看奖励惩罚和验证人怎么挂的关系',
+          `account_id` varchar(55) DEFAULT NULL COMMENT '奖惩者地址*****************要看奖励惩罚和提名人怎么挂的关系',
+          `module_id` varchar(100) DEFAULT NULL COMMENT '操作id:staking',
+          `amount` decimal(50,20) DEFAULT NULL COMMENT '数量:9196868377476',
+          `finalized` tinyint(1) DEFAULT NULL COMMENT '状态：1-已确认，0-确认中',
+          `success` tinyint(1) DEFAULT NULL COMMENT '结果：1-成功，0-失败',
+          `params` text COMMENT '参数:[{\"type\":\"AccountId\",\"value\":\"522d2567732682f0f71d679776aaf795b0c9c926b792ea3e4e8f2b68a9f3881f\"}]',
+          `time_created` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+          `time_updated` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
+          PRIMARY KEY (`id`) USING BTREE,
+          UNIQUE KEY `uk_event_index` (`event_index`) USING BTREE COMMENT '事件索引',
+          UNIQUE KEY `uk_event_sort` (`event_sort`) USING BTREE COMMENT '事件sort索引',
+          KEY `idx_block` (`block_num`) USING BTREE COMMENT '块索引',
+          KEY `idx_block_timestamp` (`block_timestamp`) USING BTREE COMMENT '区块打包时间索引',
+          KEY `idx_validator` (`validator_stash`) USING BTREE COMMENT '验证人账户地址索引',
+          KEY `idx_account_id` (`account_id`) USING BTREE COMMENT '奖惩者地址索引',
+          KEY `extrinsic_hash` (`extrinsic_hash`) USING BTREE COMMENT '交易hash索引'
+        ) ENGINE=InnoDB COMMENT='奖励惩罚表_${tableNo}'
+    </update>
+
+    <select id="getTotalCount" resultType="crust.explorer.pojo.vo.TableVo">
+        select 0 count, 0 tableNo from dual union all
+        <foreach collection="tableNos" item="tableNo" index="index" separator="union all">
+            select count(block_num) count, ${tableNo} tableNo from ce_reward_slash_${tableNo}
+            <if test="address!=null and address!=''">
+                where account_id = #{address}
+            </if>
+        </foreach>
+    </select>
+
+    <select id="listPageByValidateAddress" resultType="crust.explorer.pojo.vo.RewardSlashVO">
+        select c.* from(
+        <foreach collection="pageTables" item="pageTable" index="index" separator="union all">
+            select
+            a.`block_num`,
+            a.`block_timestamp`,
+            a.`event_id`,
+            a.`event_idx`,
+            a.`event_index`,
+            a.`event_sort`,
+            a.`extrinsic_idx`,
+            a.`extrinsic_hash`,
+            a.`validator_stash`,
+            a.`account_id`,
+            a.`module_id`,
+            a.`amount`,
+            a.`finalized`,
+            a.`success`,
+            a.`params`
+            from ce_reward_slash_${pageTable.tableNo} a, (select id from ce_reward_slash_${pageTable.tableNo}
+            <if test="address!=null and address!=''">
+                where account_id = #{address}
+            </if>
+            order by event_sort desc limit #{pageTable.begin},#{pageTable.pageSize}) b
+            where a.id in (b.id)
+        </foreach>
+        ) c order by c.event_sort desc
+    </select>
+
+    <select id="listEventsAutoPage" resultType="crust.explorer.pojo.vo.RewardSlashVO">
+        SELECT * FROM ce_reward_slash_${tableNo} WHERE block_num = #{blockNum} order by event_sort
+    </select>
+
+    <select id="getInfo" resultType="crust.explorer.pojo.vo.RewardSlashVO">
+        SELECT * FROM ce_reward_slash_{tableNo} WHERE block_num = #{blockNum} and event_index = #{eventIndex}
+    </select>
+
+    <insert id="syncRewardSlash">
+        INSERT INTO `ce_reward_slash_${tableNo}`
+        ( `block_num`,
+        `block_timestamp`,
+        `event_id`,
+        `event_idx`,
+        `event_index`,
+        `event_sort`,
+        `extrinsic_idx`,
+        `extrinsic_hash`,
+        `validator_stash`,
+        `account_id`,
+        `module_id`,
+        `amount`,
+        `finalized`,
+        `success`,
+        `params` )
+        values
+        <foreach collection="rewardSlashes" item="rewardSlash" index="index" separator=",">
+            (#{rewardSlash.blockNum},
+            #{rewardSlash.blockTimestamp},
+            #{rewardSlash.eventId},
+            #{rewardSlash.eventIdx},
+            #{rewardSlash.eventIndex},
+            #{rewardSlash.eventSort},
+            #{rewardSlash.extrinsicIdx},
+            #{rewardSlash.extrinsicHash},
+            #{rewardSlash.validatorStash},
+            #{rewardSlash.accountId},
+            #{rewardSlash.moduleId},
+            #{rewardSlash.amount},
+            #{rewardSlash.finalized},
+            #{rewardSlash.success},
+            #{rewardSlash.params})
+        </foreach>
+    </insert>
+
+    <insert id="syncUpdateRewardSlash">
+        INSERT INTO `ce_reward_slash_${tableNo}`
+        (`block_num`,
+        `block_timestamp`,
+        `event_id`,
+        `event_idx`,
+        `event_index`,
+        `event_sort`,
+        `extrinsic_idx`,
+        `extrinsic_hash`,
+        `validator_stash`,
+        `account_id`,
+        `module_id`,
+        `amount`,
+        `finalized`,
+        `success`,
+        `params` )
+        values
+        <foreach collection="rewardSlashes" item="rewardSlash" index="index" separator=",">
+            (#{rewardSlash.blockNum},
+            #{rewardSlash.blockTimestamp},
+            #{rewardSlash.eventId},
+            #{rewardSlash.eventIdx},
+            #{rewardSlash.eventIndex},
+            #{rewardSlash.eventSort},
+            #{rewardSlash.extrinsicIdx},
+            #{rewardSlash.extrinsicHash},
+            #{rewardSlash.validatorStash},
+            #{rewardSlash.accountId},
+            #{rewardSlash.moduleId},
+            #{rewardSlash.amount},
+            #{rewardSlash.finalized},
+            #{rewardSlash.success},
+            #{rewardSlash.params})
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+        block_num = values(block_num),
+        block_timestamp = values(block_timestamp),
+        event_id = values(event_id),
+        event_idx = values(event_idx),
+        event_index = values(event_index),
+        event_sort = values(event_sort),
+        extrinsic_idx = values(extrinsic_idx),
+        extrinsic_hash = values(extrinsic_hash),
+        validator_stash = values(validator_stash),
+        account_id = values(account_id),
+        module_id = values(module_id),
+        amount = values(amount),
+        finalized = values(finalized),
+        success = values(success),
+        params = values(params)
+    </insert>
+
+</mapper>

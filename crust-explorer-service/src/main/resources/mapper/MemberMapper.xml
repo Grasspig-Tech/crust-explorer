@@ -1,0 +1,156 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="crust.explorer.mapper.MemberMapper">
+
+    <insert id="syncUpdateMembers">
+        INSERT INTO `ce_member`
+        (`era`,
+        `role`,
+        `member_rank`,
+        `count_nominators`,
+        `grandpa_vote`,
+        `session_key`,
+        `latest_mining`,
+        `reward_point`,
+        `account_address`,
+        `controller_account_address`,
+        `account_display`,
+        `controller_account_display` )
+        values
+        <foreach collection="members" item="member" index="index" separator=",">
+            (#{member.era},
+            #{member.role},
+            #{member.memberRank},
+            #{member.countNominators},
+            #{member.grandpaVote},
+            #{member.sessionKey},
+            #{member.latestMining},
+            #{member.rewardPoint},
+            #{member.accountAddress},
+            #{member.controllerAccountAddress},
+            #{member.accountDisplay},
+            #{member.controllerAccountDisplay})
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+        `era` = values(`era`),
+        `role` = values(`role`),
+        `member_rank` = values(`member_rank`),
+        `count_nominators` = values(`count_nominators`),
+        `grandpa_vote` = values(`grandpa_vote`),
+        `session_key` = values(`session_key`),
+        `latest_mining` = values(`latest_mining`),
+        `reward_point` = values(`reward_point`),
+        `account_address` = values(`account_address`),
+        `controller_account_address` = values(`controller_account_address`),
+        `account_display` = values(`account_display`),
+        `controller_account_display` = values(`controller_account_display`)
+    </insert>
+
+    <select id="getValidators" resultType="crust.explorer.pojo.vo.ValidatorBondedPledgeVO">
+        select
+            a.role,
+            a.member_rank,
+            a.account_address,
+            a.account_display,
+            a.count_nominators,
+            a.reward_point,
+            truncate(b.`bonded_nominators`,4) bonded_nominators,
+            truncate(b.`bonded_owner`,4) bonded_owner,
+            truncate(b.`owner_active_pledge`,4) owner_active_pledge,
+            truncate(b.`other_active_pledge`,4) other_active_pledge,
+            truncate(b.`pledge_max`,4) pledge_max,
+            truncate(b.`pledge_total`,4) pledge_total,
+            truncate(b.`guarantee_fee`,4) guarantee_fee,
+            b.`score`
+        from ce_member a left join ce_bonded_pledge b on a.account_address = b.account_address
+        where a.`role` = #{role}
+        and a.`era` = (select max(`era`) from ce_member)
+        and a.`era` = b.`era`
+        <if test="role==1">
+            order by a.member_rank
+        </if>
+        <if test="role==2">
+            order by b.bonded_owner desc
+        </if>
+    </select>
+
+    <select id="getPledgeQuotas" resultType="crust.explorer.pojo.vo.ValidatorBondedPledgeVO">
+        select
+            a.role,
+            a.member_rank,
+            a.account_address,
+            a.account_display,
+            a.count_nominators,
+            a.reward_point,
+            truncate(b.`bonded_nominators`,4) bonded_nominators,
+            truncate(b.`bonded_owner`,4) bonded_owner,
+            truncate(b.`owner_active_pledge`,4) owner_active_pledge,
+            truncate(b.`other_active_pledge`,4) other_active_pledge,
+            truncate(b.`pledge_max`,4) pledge_max,
+            truncate(b.`pledge_total`,4) pledge_total,
+            truncate(b.`guarantee_fee`,4) guarantee_fee,
+            b.`score`
+        from ce_member a left join ce_bonded_pledge b on a.account_address = b.account_address
+        where a.`era` = (select max(`era`) from ce_member)
+        and a.`era` = b.`era`
+        order by b.pledge_total desc
+    </select>
+
+    <select id="getActivePledges" resultType="crust.explorer.pojo.vo.ValidatorBondedPledgeVO">
+        select
+            a.role,
+            a.member_rank,
+            a.account_address,
+            a.account_display,
+            a.count_nominators,
+            a.reward_point,
+            truncate(b.`bonded_nominators`,4) bonded_nominators,
+            truncate(b.`bonded_owner`,4) bonded_owner,
+            truncate(b.`owner_active_pledge`,4) owner_active_pledge,
+            truncate(b.`other_active_pledge`,4) other_active_pledge,
+            truncate(b.`pledge_max`,4) pledge_max,
+            truncate(b.`pledge_total`,4) pledge_total,
+            truncate(b.`guarantee_fee`,4) guarantee_fee,
+            b.`score`
+        from ce_member a left join ce_bonded_pledge b on a.account_address = b.account_address
+        where a.`era` = (select max(`era`) from ce_member)
+        and a.`era` = b.`era`
+        order by b.owner_active_pledge desc
+    </select>
+
+    <select id="getValidatorInfoByHah" resultType="crust.explorer.pojo.vo.ValidatorDetailVO">
+        select
+            a.`era`,
+            a.`role`,
+            (a.`member_rank` + 1) member_rank,
+            a.`count_nominators`,
+            a.`grandpa_vote`,
+            a.`session_key`,
+            a.`latest_mining`,
+            a.`reward_point`,
+            a.`account_address`,
+            a.`controller_account_address`,
+            a.`account_display`,
+            a.`controller_account_display`,
+            truncate(b.`bonded_nominators`,4) bonded_nominators,
+            truncate(b.`bonded_owner`,4) bonded_owner,
+            truncate(b.`guarantee_fee`,4) guarantee_fee
+        from ce_member a left join ce_bonded_pledge b on a.account_address = b.account_address
+        where a.`era` = (select max(`era`) from ce_member)
+        and a.`era` = b.`era`
+        and a.`account_address` = #{hash}
+    </select>
+
+    <delete id="removeLongAgoData">
+        <![CDATA[
+                delete from ce_member a where a.era < (select b.maxEra from (select ifnull(max(`era`),0) maxEra from ce_member) b)
+        ]]>
+    </delete>
+
+    <select id="getNumberValidator" resultType="int">
+        select count(id) from ce_member where role = 1 and era = (select max(era) from ce_member)
+    </select>
+
+</mapper>

@@ -1,0 +1,217 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="crust.explorer.mapper.EventMapper">
+
+    <update id="createTable" parameterType="String">
+        CREATE TABLE If Not Exists `ce_event_${tableNo}` (
+          `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
+          `block_num` int(11) DEFAULT NULL COMMENT '区块号:2242969',
+          `block_timestamp` int(11) DEFAULT NULL COMMENT '区块打包时间:1625209788',
+          `event_id` varchar(100) DEFAULT NULL COMMENT '操作（事件）:WorksReportSuccess',
+          `event_idx` int(11) DEFAULT NULL COMMENT '事件idx:1',
+          `event_index` varchar(15) DEFAULT NULL COMMENT '事件index:2242969-1',
+          `event_sort` varchar(15) DEFAULT NULL COMMENT '事件sort:22429690001',
+          `extrinsic_hash` varchar(70) DEFAULT NULL COMMENT '交易hash:0x55a6dd0bfc857895f45c3bedb52f9025e4b284d3b00794f1856a3e35eb346014',
+          `extrinsic_index` varchar(15) DEFAULT NULL COMMENT '交易index:2242969-2',
+          `extrinsic_idx` int(11) DEFAULT NULL COMMENT '交易idx:2',
+          `finalized` tinyint(1) DEFAULT NULL COMMENT '状态：1-已确认，0-确认中',
+          `success` tinyint(1) DEFAULT NULL COMMENT '结果：1-成功，0-失败',
+          `type` varchar(50) DEFAULT NULL COMMENT '事件类型',
+          `module_id` varchar(100) DEFAULT NULL COMMENT '操作（组件）:swork',
+          `params` text COMMENT '参数:[{\"type\":\"AccountId\",\"value\":\"4a54ace1fc67f52c5248e811bebeb05794b93df12d3281b5fc2a74bf77e8e745\"}]',
+          `time_created` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+          `time_updated` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
+          PRIMARY KEY (`id`) USING BTREE,
+          UNIQUE KEY `uk_event_index` (`event_index`) USING BTREE COMMENT '事件index索引',
+          UNIQUE KEY `uk_event_sort` (`event_sort`) USING BTREE COMMENT '事件sort索引',
+          KEY `idx_block_num` (`block_num`) USING BTREE COMMENT '区块号索引',
+          KEY `idx_block_timestamp` (`block_timestamp`) USING BTREE COMMENT '区块打包时间索引',
+          KEY `idx_extrinsic_hash` (`extrinsic_hash`) USING BTREE COMMENT '交易hash索引',
+          KEY `idx_extrinsic_index` (`extrinsic_index`) USING BTREE COMMENT '交易index索引',
+          KEY `idx_type` (`type`) USING BTREE COMMENT '事件类型索引',
+          KEY `idx_event_id` (`event_id`) USING BTREE COMMENT '事件id索引',
+          KEY `idx_module_id` (`module_id`) USING BTREE COMMENT '操作id索引'
+        ) ENGINE=InnoDB COMMENT='事件信息_${tableNo}'
+    </update>
+
+    <insert id="syncEvent">
+        INSERT INTO `ce_event_${tableNo}`
+        (`block_num`,
+        `block_timestamp`,
+        `event_id`,
+        `event_idx`,
+        `event_index`,
+        `event_sort`,
+        `extrinsic_hash`,
+        `extrinsic_index`,
+        `extrinsic_idx`,
+        `finalized`,
+        `success`,
+        `type`,
+        `module_id`,
+        `params`)
+        values
+        <foreach collection="events" item="event" index="index" separator=",">
+            (#{event.blockNum},
+            #{event.blockTimestamp},
+            #{event.eventId},
+            #{event.eventIdx},
+            #{event.eventIndex},
+            #{event.eventSort},
+            #{event.extrinsicHash},
+            #{event.extrinsicIndex},
+            #{event.extrinsicIdx},
+            #{event.finalized},
+            #{event.success},
+            #{event.type},
+            #{event.moduleId},
+            #{event.params})
+        </foreach>
+    </insert>
+
+    <insert id="syncUpdateEvent">
+        INSERT INTO `ce_event_${tableNo}`
+        (`block_num`,
+        `block_timestamp`,
+        `event_id`,
+        `event_idx`,
+        `event_index`,
+        `event_sort`,
+        `extrinsic_hash`,
+        `extrinsic_index`,
+        `extrinsic_idx`,
+        `finalized`,
+        `success`,
+        `type`,
+        `module_id`,
+        `params`)
+        values
+        <foreach collection="events" item="event" index="index" separator=",">
+            (#{event.blockNum},
+            #{event.blockTimestamp},
+            #{event.eventId},
+            #{event.eventIdx},
+            #{event.eventIndex},
+            #{event.eventSort},
+            #{event.extrinsicHash},
+            #{event.extrinsicIndex},
+            #{event.extrinsicIdx},
+            #{event.finalized},
+            #{event.success},
+            #{event.type},
+            #{event.moduleId},
+            #{event.params})
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+        block_num = values(block_num),
+        block_timestamp = values(block_timestamp),
+        event_id = values(event_id),
+        event_idx = values(event_idx),
+        event_index = values(event_index),
+        event_sort = values(event_sort),
+        extrinsic_hash = values(extrinsic_hash),
+        extrinsic_index = values(extrinsic_index),
+        extrinsic_idx = values(extrinsic_idx),
+        finalized = values(finalized),
+        success = values(success),
+        `type` = values(`type`),
+        module_id = values(module_id),
+        params = values(params)
+    </insert>
+
+    <select id="getTotalCount" resultType="crust.explorer.pojo.vo.TableVo">
+        select 0 count, 0 tableNo from dual union all
+        <foreach collection="tableNos" item="tableNo" index="index" separator="union all">
+            select count(block_num) count, ${tableNo} tableNo from ce_event_${tableNo}
+        </foreach>
+    </select>
+
+    <select id="listEventsPage" resultType="crust.explorer.pojo.vo.EventVO">
+        select c.* from(
+        <foreach collection="pageTables" item="pageTable" index="index" separator="union all">
+            select
+            a.`block_num`,
+            a.`block_timestamp`,
+            a.`event_id`,
+            a.`event_idx`,
+            a.`event_index`,
+            a.`event_sort`,
+            a.`extrinsic_hash`,
+            a.`extrinsic_index`,
+            a.`extrinsic_idx`,
+            a.`finalized`,
+            a.`success`,
+            a.`type`,
+            a.`module_id`,
+            a.`params`
+            from ce_event_${pageTable.tableNo} a, (select id from ce_event_${pageTable.tableNo} order by
+            event_sort desc limit #{pageTable.begin},#{pageTable.pageSize}) b
+            where a.id in (b.id)
+        </foreach>
+        ) c order by c.event_sort desc
+    </select>
+
+    <select id="listEventsAutoPage" resultType="crust.explorer.pojo.vo.EventVO">
+        SELECT
+            a.`block_num`,
+            a.`block_timestamp`,
+            a.`event_id`,
+            a.`event_idx`,
+            a.`event_index`,
+            a.`event_sort`,
+            a.`extrinsic_hash`,
+            a.`extrinsic_index`,
+            a.`extrinsic_idx`,
+            a.`finalized`,
+            a.`success`,
+            a.`type`,
+            a.`module_id`,
+            a.`params`
+         FROM ce_event_${tableNo} a WHERE a.block_num = #{blockNum}
+         order by a.event_sort
+    </select>
+
+    <select id="getEvents" resultType="crust.explorer.pojo.vo.EventVO">
+        SELECT
+            a.`block_num`,
+            a.`block_timestamp`,
+            a.`event_id`,
+            a.`event_idx`,
+            a.`event_index`,
+            a.`event_sort`,
+            a.`extrinsic_hash`,
+            a.`extrinsic_index`,
+            a.`extrinsic_idx`,
+            a.`finalized`,
+            a.`success`,
+            a.`type`,
+            a.`module_id`,
+            a.`params`
+         FROM ce_event_${tableNo} a
+         WHERE a.block_num = #{blockNum}
+         and a.extrinsic_index = #{extrinsicIndex}
+         order by a.event_sort
+    </select>
+
+    <select id="getInfo" resultType="crust.explorer.pojo.vo.EventVO">
+        SELECT
+            a.`block_num`,
+            a.`block_timestamp`,
+            a.`event_id`,
+            a.`event_idx`,
+            a.`event_index`,
+            a.`event_sort`,
+            a.`extrinsic_hash`,
+            a.`extrinsic_index`,
+            a.`extrinsic_idx`,
+            a.`finalized`,
+            a.`success`,
+            a.`type`,
+            a.`module_id`,
+            a.`params`
+         FROM ce_event_${tableNo} a WHERE a.block_num = #{blockNum} and a.event_index = #{eventIndex}
+    </select>
+
+</mapper>

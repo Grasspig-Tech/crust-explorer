@@ -1,0 +1,45 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="crust.explorer.mapper.EraStatMapper">
+
+    <insert id="syncUpdateEra">
+        INSERT INTO `ce_era_stat`
+        ( `era`,
+        `start_block_timestamp`,
+        `end_block_timestamp`,
+        `status`)
+        values
+        (#{era.era},
+        #{era.startBlockTimestamp},
+        #{era.endBlockTimestamp},
+        #{era.status})
+        ON DUPLICATE KEY UPDATE
+        era = values(era),
+        start_block_timestamp = values(start_block_timestamp),
+        end_block_timestamp = values(end_block_timestamp),
+        status = values(status)
+    </insert>
+
+    <insert id="syncUpdateEras">
+        INSERT INTO `ce_era_stat`
+        ( `era`,
+        `start_block_timestamp`,
+        `end_block_timestamp`,
+        `status`)
+        values
+        <foreach collection="eras" item="era" index="index" separator=",">
+            (#{era.era},
+            #{era.startBlockTimestamp},
+            #{era.endBlockTimestamp},
+            #{era.status})
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+        era = values(era),
+        start_block_timestamp = values(start_block_timestamp),
+        end_block_timestamp = values(end_block_timestamp),
+        status = values(status)
+    </insert>
+
+</mapper>

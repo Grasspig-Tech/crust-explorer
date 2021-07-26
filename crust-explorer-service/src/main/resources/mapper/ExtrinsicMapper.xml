@@ -1,0 +1,320 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="crust.explorer.mapper.ExtrinsicMapper">
+
+    <update id="createTable" parameterType="String">
+        CREATE TABLE If Not Exists `ce_extrinsic_${tableNo}` (
+          `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
+          `lifetime` varchar(255) DEFAULT NULL COMMENT 'Life Time:{birth: 2242965, death: 2243029}',
+          `params` mediumtext COMMENT '参数[{name: "curr_pk", type: "SworkerPubKey",…}, {name: "ab_upgrade_pk", type: "SworkerPubKey",…},…]',
+          `extrinsic_idx` int(11) DEFAULT NULL COMMENT '交易idx:2',
+          `extrinsic_index` varchar(15) DEFAULT NULL COMMENT '交易index:2242969-2',
+          `extrinsic_sort` varchar(15) DEFAULT NULL COMMENT '交易sort:22429690002',
+          `extrinsic_hash` varchar(70) DEFAULT NULL COMMENT '交易hash：0x912fe2e6165127806244bc03f08ea5863c633722b0897fb2eb2dd53e82c80120',
+          `block_hash` varchar(70) DEFAULT NULL COMMENT '区块hash:0x01ef73c2a08f44e902f45f0e6961143076db5c76c90704467c233e8550dc6865',
+          `block_num` int(11) DEFAULT NULL COMMENT '区块号:2242969',
+          `block_timestamp` int(11) DEFAULT NULL COMMENT '区块打包时间:1625209788',
+          `call_module` varchar(100) DEFAULT NULL COMMENT '操作（组件）:swork',
+          `call_module_function` varchar(100) DEFAULT NULL COMMENT '操作方法（调用）:report_works',
+          `account_id` varchar(55) DEFAULT NULL COMMENT '发送账户账号地址:5CvfDWAQMPSgpN6sx2LADHx6AxCkrdQAxHPpnrVwvpg1ZtMe',
+          `account_display` text COMMENT '发送账号json:{address: "5CvfDWAQMPSgpN6sx2LADHx6AxCkrdQAxHPpnrVwvpg1ZtMe", display: "", judgements: null,…}',
+          `fee` decimal(50,20) DEFAULT NULL COMMENT '手续费:56642301',
+          `finalized` tinyint(1) DEFAULT NULL COMMENT '状态：1-已确认，0-确认中',
+          `success` tinyint(1) DEFAULT NULL COMMENT '结果：1-成功，0-失败',
+          `signed` tinyint(1) DEFAULT NULL COMMENT '是否签名：1-是，0-否',
+          `nonce` int(11) DEFAULT NULL COMMENT '随机数:3840',
+          `signature` varchar(255) DEFAULT NULL COMMENT '签名:0xbc59e491fe045c8e1f1695f86a3f26239b976a9f310f6b6460ecb732e2ae3f6f20e07e45e58ca44c1038d11a9602c465807fd502e000d815902a18200a4cd480',
+          `transfer` text COMMENT '转账json{from: "5CfLoSHYbCtCTcKgyPMcCK3i1pYCtkyUtTQBz8Gfxo8Yu2oc",…}',
+          `time_created` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+          `time_updated` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
+          PRIMARY KEY (`id`) USING BTREE,
+          UNIQUE KEY `uk_extrinsic_hash` (`extrinsic_hash`) USING BTREE COMMENT '交易hash索引',
+          KEY `idx_extrinsic_sort` (`extrinsic_sort`) USING BTREE COMMENT '交易sort索引',
+          KEY `idx_extrinsic_index` (`extrinsic_index`) USING BTREE COMMENT '交易index索引',
+          KEY `idx_block` (`block_num`) USING BTREE COMMENT '块索引',
+          KEY `idx_block_timestamp` (`block_timestamp`) USING BTREE COMMENT '区块打包时间索引',
+          KEY `idx_account_id` (`account_id`) USING BTREE COMMENT '发送账户账号索引',
+          KEY `idx_call_module` (`call_module`) USING BTREE COMMENT '操作索引',
+          KEY `idx_call_module_function` (`call_module_function`) USING BTREE COMMENT '操作方法索引'
+        ) ENGINE=InnoDB COMMENT='交易信息表_${tableNo}'
+    </update>
+
+    <select id="getCountExtrinsic" resultType="java.lang.Integer">
+        select sum(extrinsicsCount) extrinsicsCount from
+        <foreach collection="tableNos" item="tableNo" index="index" open="(" separator="union all" close=")">
+            <![CDATA[
+                select sum(extrinsics_count) extrinsicsCount from ce_block_${tableNo}
+                where block_timestamp >= #{beginTime} and block_timestamp < #{endTime}
+            ]]>
+        </foreach>
+        a
+    </select>
+
+    <select id="getTotalCount" resultType="crust.explorer.pojo.vo.TableVo">
+        select 0 count, 0 tableNo from dual union all
+        <foreach collection="tableNos" item="tableNo" index="index" separator="union all">
+            select count(block_num) count, ${tableNo} tableNo from ce_extrinsic_${tableNo}
+            <if test="address!=null and address!=''">
+                where account_id = #{address}
+            </if>
+        </foreach>
+    </select>
+
+    <select id="listExtrinsicsPage" resultType="crust.explorer.pojo.vo.ExtrinsicVO">
+        select c.* from(
+        <foreach collection="pageTables" item="pageTable" index="index" separator="union all">
+            select
+            a.`lifetime`,
+            a.`params`,
+            a.`extrinsic_idx`,
+            a.`extrinsic_index`,
+            a.`extrinsic_sort`,
+            a.`extrinsic_hash`,
+            a.`block_hash`,
+            a.`block_num`,
+            a.`block_timestamp`,
+            a.`call_module`,
+            a.`call_module_function`,
+            a.`account_id`,
+            a.`account_display`,
+            a.`fee`,
+            a.`finalized`,
+            a.`success`,
+            a.`signed`,
+            a.`nonce`,
+            a.`signature`,
+            a.`transfer`
+            from ce_extrinsic_${pageTable.tableNo} a, (select id from ce_extrinsic_${pageTable.tableNo}
+            <if test="address!=null and address!=''">
+                where account_id = #{address}
+            </if>
+            order by extrinsic_sort desc limit #{pageTable.begin},#{pageTable.pageSize}) b
+            where a.id in (b.id)
+        </foreach>
+        ) c order by c.extrinsic_sort desc
+    </select>
+
+    <select id="listExtrinsicsAutoPage" resultType="crust.explorer.pojo.vo.ExtrinsicVO">
+        select
+            a.`lifetime`,
+            a.`params`,
+            a.`extrinsic_idx`,
+            a.`extrinsic_index`,
+            a.`extrinsic_sort`,
+            a.`extrinsic_hash`,
+            a.`block_hash`,
+            a.`block_num`,
+            a.`block_timestamp`,
+            a.`call_module`,
+            a.`call_module_function`,
+            a.`account_id`,
+            a.`account_display`,
+            a.`fee`,
+            a.`finalized`,
+            a.`success`,
+            a.`signed`,
+            a.`nonce`,
+            a.`signature`,
+            a.`transfer`
+         FROM ce_extrinsic_${tableNo} a WHERE a.block_num = #{blockNum}
+         order by a.extrinsic_sort
+    </select>
+
+    <select id="getInfo" resultType="crust.explorer.pojo.vo.ExtrinsicVO">
+         select
+            a.`lifetime`,
+            a.`params`,
+            a.`extrinsic_idx`,
+            a.`extrinsic_index`,
+            a.`extrinsic_sort`,
+            a.`extrinsic_hash`,
+            a.`block_hash`,
+            a.`block_num`,
+            a.`block_timestamp`,
+            a.`call_module`,
+            a.`call_module_function`,
+            a.`account_id`,
+            a.`account_display`,
+            a.`fee`,
+            a.`finalized`,
+            a.`success`,
+            a.`signed`,
+            a.`nonce`,
+            a.`signature`,
+            a.`transfer`
+         FROM ce_extrinsic_${tableNo} a
+        WHERE a.block_num = #{blockNum} and a.extrinsic_index = #{extrinsicIndex}
+    </select>
+
+    <select id="getInfoByHash" resultType="crust.explorer.pojo.vo.ExtrinsicVO">
+         select
+            a.`lifetime`,
+            a.`params`,
+            a.`extrinsic_idx`,
+            a.`extrinsic_index`,
+            a.`extrinsic_sort`,
+            a.`extrinsic_hash`,
+            a.`block_hash`,
+            a.`block_num`,
+            a.`block_timestamp`,
+            a.`call_module`,
+            a.`call_module_function`,
+            a.`account_id`,
+            a.`account_display`,
+            a.`fee`,
+            a.`finalized`,
+            a.`success`,
+            a.`signed`,
+            a.`nonce`,
+            a.`signature`,
+            a.`transfer`
+         FROM ce_extrinsic_${tableNo} a WHERE a.block_num = #{blockNum} and a.extrinsic_hash = #{extrinsicHash}
+    </select>
+
+    <insert id="syncExtrinsic">
+        INSERT INTO `ce_extrinsic_${tableNo}`
+        (`lifetime`,
+        `params`,
+        `extrinsic_idx`,
+        `extrinsic_index`,
+        `extrinsic_sort`,
+        `extrinsic_hash`,
+        `block_hash`,
+        `block_num`,
+        `block_timestamp`,
+        `call_module`,
+        `call_module_function`,
+        `account_id`,
+        `account_display`,
+        `fee`,
+        `finalized`,
+        `success`,
+        `signed`,
+        `nonce`,
+        `signature`,
+        `transfer`)
+        values
+        <foreach collection="extrinsics" item="extrinsic" index="index" separator=",">
+            (#{extrinsic.lifetime},
+            #{extrinsic.params},
+            #{extrinsic.extrinsicIdx},
+            #{extrinsic.extrinsicIndex},
+            #{extrinsic.extrinsicSort},
+            #{extrinsic.extrinsicHash},
+            #{extrinsic.blockHash},
+            #{extrinsic.blockNum},
+            #{extrinsic.blockTimestamp},
+            #{extrinsic.callModule},
+            #{extrinsic.callModuleFunction},
+            #{extrinsic.accountId},
+            #{extrinsic.accountDisplay},
+            #{extrinsic.fee},
+            #{extrinsic.finalized},
+            #{extrinsic.success},
+            #{extrinsic.signed},
+            #{extrinsic.nonce},
+            #{extrinsic.signature},
+            #{extrinsic.transfer})
+        </foreach>
+    </insert>
+
+    <insert id="syncUpdateExtrinsic">
+        INSERT INTO `ce_extrinsic_${tableNo}`
+        (`lifetime`,
+        `params`,
+        `extrinsic_idx`,
+        `extrinsic_index`,
+        `extrinsic_sort`,
+        `extrinsic_hash`,
+        `block_hash`,
+        `block_num`,
+        `block_timestamp`,
+        `call_module`,
+        `call_module_function`,
+        `account_id`,
+        `account_display`,
+        `fee`,
+        `finalized`,
+        `success`,
+        `signed`,
+        `nonce`,
+        `signature`,
+        `transfer`)
+        values
+        <foreach collection="extrinsics" item="extrinsic" index="index" separator=",">
+            (#{extrinsic.lifetime},
+            #{extrinsic.params},
+            #{extrinsic.extrinsicIdx},
+            #{extrinsic.extrinsicIndex},
+            #{extrinsic.extrinsicSort},
+            #{extrinsic.extrinsicHash},
+            #{extrinsic.blockHash},
+            #{extrinsic.blockNum},
+            #{extrinsic.blockTimestamp},
+            #{extrinsic.callModule},
+            #{extrinsic.callModuleFunction},
+            #{extrinsic.accountId},
+            #{extrinsic.accountDisplay},
+            #{extrinsic.fee},
+            #{extrinsic.finalized},
+            #{extrinsic.success},
+            #{extrinsic.signed},
+            #{extrinsic.nonce},
+            #{extrinsic.signature},
+            #{extrinsic.transfer})
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+        lifetime = values(lifetime),
+        params = values(params),
+        extrinsic_idx = values(extrinsic_idx),
+        extrinsic_index = values(extrinsic_index),
+        extrinsic_sort = values(extrinsic_sort),
+        extrinsic_hash = values(extrinsic_hash),
+        block_hash = values(block_hash),
+        block_num = values(block_num),
+        block_timestamp = values(block_timestamp),
+        call_module = values(call_module),
+        call_module_function = values(call_module_function),
+        account_id = values(account_id),
+        account_display = values(account_display),
+        fee = values(fee),
+        finalized = values(finalized),
+        success = values(success),
+        signed = values(signed),
+        nonce = values(nonce),
+        signature = values(signature),
+        transfer = values(transfer)
+    </insert>
+
+    <select id="getExtrinsicByHash" resultType="crust.explorer.pojo.vo.ExtrinsicVO">
+        select c.* from(
+        <foreach collection="tableNos" item="tableNo" index="index" separator="union all">
+            select
+            a.`lifetime`,
+            a.`params`,
+            a.`extrinsic_idx`,
+            a.`extrinsic_index`,
+            a.`extrinsic_sort`,
+            a.`extrinsic_hash`,
+            a.`block_hash`,
+            a.`block_num`,
+            a.`block_timestamp`,
+            a.`call_module`,
+            a.`call_module_function`,
+            a.`account_id`,
+            a.`account_display`,
+            a.`fee`,
+            a.`finalized`,
+            a.`success`,
+            a.`signed`,
+            a.`nonce`,
+            a.`signature`,
+            a.`transfer`
+            from ce_extrinsic_${tableNo} a where a.extrinsic_hash = #{extrinsicHash}
+        </foreach>
+        ) c limit 1
+    </select>
+
+</mapper>

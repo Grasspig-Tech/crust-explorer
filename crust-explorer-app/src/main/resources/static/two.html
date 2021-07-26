@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>websocket测试</title>
+    <style type="text/css">
+        h3, h4 {
+            text-align: center;
+        }
+    </style>
+    <script src="/static/js/jquery-3.2.1.js"></script>
+</head>
+<body>
+
+<h3>WebSocket测试，在<span style="color:red">控制台</span>查看测试信息输出！</h3>
+<h4>
+    [url=/api/ws/sendOne?message=单发消息内容&id=none]单发消息链接[/url]
+    [url=/api/ws/sendAll?message=群发消息内容]群发消息链接[/url]
+</h4>
+<div id="did">
+
+</div>
+<input id="iid" type="hidden" value=""/>
+<input id="msgId" type="text" value=""/>
+<input type="button" value="发给自己" onclick="sendOne(document.getElementById('iid').value ,document.getElementById('msgId').value )" />;
+<input type="button" value="发给大家" onclick="broadCast(document.getElementById('msgId').value )" />;
+<h1>滚动消息窗口</h1>
+<div id="refreshPerson">
+
+</div>
+<textarea id="chatWin">
+
+</textarea>
+<script type="text/javascript">
+    var socket;
+    if (typeof (WebSocket) == "undefined") {
+        console.log("遗憾：您的浏览器不支持WebSocket");
+    } else {
+        console.log("恭喜：您的浏览器支持WebSocket");
+
+        //实现化WebSocket对象
+        //指定要连接的服务器地址与端口建立连接
+        //注意ws、wss使用不同的端口。我使用自签名的证书测试，
+        //无法使用wss，浏览器打开WebSocket时报错
+        //ws对应http、wss对应https。
+        // socket = new WebSocket("ws://localhost:6363/ws/TWO_MODULE");
+        socket = new WebSocket("ws://39.100.156.170:6363/ws/TWO_MODULE");
+        //连接打开事件
+        socket.onopen = function () {
+            console.log("Socket 已打开");
+            socket.send("消息发送测试(From Client)");
+            //收到消息事件
+            socket.onmessage = function (msg) {
+                console.log(msg.data);
+                if(msg.data){
+                    var idMsg = msg.data.split("|");
+                    if(idMsg.length==2 && idMsg[0]=="id"){
+                        $("#did").html("我的id: "+idMsg[1]);
+                        $("#iid").val(idMsg[1]);
+                    }else if(idMsg.length==2 && idMsg[0]=="refreshPerson"){
+                        $("#refreshPerson").html(idMsg[1]);
+                    }else {
+                        $("#chatWin").html(msg.data);
+                    }
+                }
+
+            };
+            //连接关闭事件
+            socket.onclose = function () {
+                console.log("Socket已关闭");
+            };
+            //发生了错误事件
+            socket.onerror = function () {
+                alert("Socket发生了错误");
+            }
+
+            //窗口关闭时，关闭连接
+            window.unload = function () {
+                socket.close();
+            };
+        }
+    }
+
+    function sendOne(id, msg) {
+        $.ajax({
+            type: "POST",
+            url: "/api/ws/test/sendMessage",
+            dataType: "text",
+            // timeout: 1000 * 15, //超时时间设置，单位毫秒,如果不设置 timeout ，jquery 默认是没有超时时间的
+            async: true,
+            data: {
+                "module":"TWO_MODULE",
+                "message": msg,
+                "id": id,
+                "timestamp": new Date().getTime()
+            },
+            success: function (result) {
+            },
+            failure: function (result) {
+                alert('Failed');
+            },
+            error: function (result) {
+                console.log(result);
+                alert('error');
+            }
+        });
+    }
+
+    function broadCast(msg) {
+        $.ajax({
+            type: "POST",
+            url: "/api/ws/test/broadCast",
+            dataType: "text",
+            // timeout: 1000 * 15, //超时时间设置，单位毫秒,如果不设置 timeout ，jquery 默认是没有超时时间的
+            async: true,
+            data: {
+                "module":"TWO_MODULE",
+                "message": msg,
+                "timestamp": new Date().getTime()
+            },
+            success: function (result) {
+            },
+            failure: function (result) {
+                alert('Failed');
+            },
+            error: function (result) {
+                console.log(result);
+                alert('error');
+            }
+        });
+    }
+</script>
+
+</body>
+</html>

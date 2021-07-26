@@ -1,0 +1,118 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="crust.explorer.mapper.BondedPledgeMapper">
+
+    <insert id="syncUpdateBondedPledges">
+        INSERT INTO `ce_bonded_pledge`
+        (`era`,
+        `account_address`,
+        `bonded_nominators`,
+        `bonded_owner`,
+        `owner_active_pledge`,
+        `other_active_pledge`,
+        `pledge_max`,
+        `pledge_total`,
+        `guarantee_fee`,
+        `score` )
+        values
+        <foreach collection="bondedPledges" item="bondedPledge" index="index" separator=",">
+            (#{bondedPledge.era},
+            #{bondedPledge.accountAddress},
+            #{bondedPledge.bondedNominators},
+            #{bondedPledge.bondedOwner},
+            #{bondedPledge.ownerActivePledge},
+            #{bondedPledge.otherActivePledge},
+            #{bondedPledge.pledgeMax},
+            #{bondedPledge.pledgeTotal},
+            #{bondedPledge.guaranteeFee},
+            #{bondedPledge.score})
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+        era = values(era),
+        account_address = values(account_address),
+        bonded_nominators = values(bonded_nominators),
+        bonded_owner = values(bonded_owner),
+        owner_active_pledge = values(owner_active_pledge),
+        other_active_pledge = values(other_active_pledge),
+        pledge_max = values(pledge_max),
+        pledge_total = values(pledge_total),
+        guarantee_fee = values(guarantee_fee),
+        score = values(score)
+    </insert>
+
+    <delete id="removeLongAgoData">
+       <![CDATA[
+
+
+                                delete from ce_bonded_pledge a where a.era < (select b.maxEra from (select ifnull(max(`era`),0) maxEra from ce_bonded_pledge) b)
+
+
+        ]]>
+    </delete>
+
+    <select id="countActivePledgeMap" resultType="crust.explorer.pojo.dto.WorkPledgeMapDto">
+        SELECT c.* from (
+            SELECT DISTINCT
+            a.account_address address,
+            c.display,
+            a.pledge_total/b.pledge_total map_ratio,
+            b.pledge_total total
+            from ce_bonded_pledge a ,
+            (SELECT sum(pledge_total) pledge_total from ce_bonded_pledge where era = (SELECT max(era) from ce_bonded_pledge)) b,
+            ce_account c
+            where a.era = (SELECT max(era) from ce_bonded_pledge)
+            and a.account_address = c.address
+            and c.account_type = 1
+        ) c ORDER BY c.map_ratio desc LIMIT 40
+    </select>
+
+    <select id="countWorkCapabilityMap" resultType="crust.explorer.pojo.dto.WorkPledgeMapDto">
+        SELECT c.* from (
+            SELECT DISTINCT
+            a.account_address address,
+            c.display,
+            a.pledge_max/b.pledge_max map_ratio,
+            b.pledge_max total
+            from ce_bonded_pledge a ,
+            (SELECT sum(pledge_max) pledge_max from ce_bonded_pledge where era = (SELECT max(era) from ce_bonded_pledge)) b,
+            ce_account c
+            where a.era = (SELECT max(era) from ce_bonded_pledge)
+            and a.account_address = c.address
+            and c.account_type = 1
+        ) c ORDER BY c.map_ratio desc LIMIT 40
+    </select>
+
+    <select id="getPledgeMinimum" resultType="java.math.BigDecimal">
+        select
+            truncate(owner_active_pledge,4) pledge_minimum
+        from ce_bonded_pledge
+        where owner_active_pledge > 0
+            and era = (select max(era) from ce_bonded_pledge)
+            order by owner_active_pledge limit 1
+    </select>
+
+    <select id="getPledgeAvg" resultType="java.math.BigDecimal">
+        select
+            truncate(sum(owner_active_pledge + other_active_pledge)/count(id),0) pledge_avg
+        from ce_bonded_pledge
+        where (owner_active_pledge > 0 or other_active_pledge > 0)
+        and era = (select max(era) from ce_bonded_pledge)
+    </select>
+
+    <select id="getPledgeTotalActive" resultType="java.math.BigDecimal">
+        select
+            truncate(sum(owner_active_pledge + other_active_pledge),0) pledge_total_active
+        from ce_bonded_pledge
+        where era = (select max(era) from ce_bonded_pledge)
+    </select>
+
+    <select id="getPledgeAbleNum" resultType="java.math.BigDecimal">
+        select
+            truncate(sum(pledge_max),0) pledge_able_num
+        from ce_bonded_pledge
+        where era = (select max(era) from ce_bonded_pledge)
+    </select>
+
+</mapper>

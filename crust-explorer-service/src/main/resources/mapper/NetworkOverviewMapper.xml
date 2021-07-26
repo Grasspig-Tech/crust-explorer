@@ -1,0 +1,70 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="crust.explorer.mapper.NetworkOverviewMapper">
+
+    <insert id="saveOrUpdate">
+        INSERT INTO `ce_network_overview`
+        (`total_storage`,
+        `total_circulation`,
+        `total_output_last24`,
+        `block_height`,
+        `block_height_confirmed`,
+        `block_last_time`,
+        `pledge_minimum`,
+        `pledge_avg`,
+        `pledge_per`,
+        `pledge_total_active`,
+        `pledge_able_num`,
+        `era`,
+        `era_start_timestamp`,
+        `countdown_era`,
+        `countdown_session`,
+        `rate_flow`,
+        `rate_inflation`,
+        `base_fee`,
+        `account_hold`,
+        `number_guarantee`,
+        `number_validator`,
+        `number_transfer`,
+        `number_trade`,
+        `status` )
+        values
+        (#{era.era},
+        #{era.validatorStash},
+        #{era.startBlockNum},
+        #{era.endBlockNum},
+        #{era.startBlockTimestamp},
+        #{era.endBlockTimestamp},
+        #{era.blockProduced},
+        #{era.blockProducedCount},
+        #{era.status} )
+        ON DUPLICATE KEY UPDATE
+        `total_storage` = values(`total_storage`),
+        `total_circulation` = values(`total_circulation`),
+        `total_output_last24` = values(`total_output_last24`),
+        `block_height` = values(`block_height`),
+        `block_height_confirmed` = values(`block_height_confirmed`),
+        `block_last_time` = values(`block_last_time`),
+        `pledge_minimum` = values(`pledge_minimum`),
+        `pledge_avg` = values(`pledge_avg`),
+        `pledge_per` = values(`pledge_per`),
+        `pledge_total_active` = values(`pledge_total_active`),
+        `pledge_able_num` = values(`pledge_able_num`),
+        `era` = values(`era`),
+        `era_start_timestamp` = values(`era_start_timestamp`),
+        `countdown_era` = values(`countdown_era`),
+        `countdown_session` = values(`countdown_session`),
+        `rate_flow` = values(`rate_flow`),
+        `rate_inflation` = values(`rate_inflation`),
+        `base_fee` = values(`base_fee`),
+        `account_hold` = values(`account_hold`),
+        `number_guarantee` = values(`number_guarantee`),
+        `number_validator` = values(`number_validator`),
+        `number_transfer` = values(`number_transfer`),
+        `number_trade` = values(`number_trade`),
+        `status` = values(`status`)
+    </insert>
+
+</mapper>

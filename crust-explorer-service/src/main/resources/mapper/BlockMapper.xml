@@ -1,0 +1,202 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="crust.explorer.mapper.BlockMapper">
+
+    <update id="createTable">
+        CREATE TABLE If Not Exists `ce_block_${tableNo}` (
+          `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
+          `finalized` tinyint(1) DEFAULT NULL COMMENT '块状态：1-已确认，0-确认中',
+          `block_num` int(11) DEFAULT NULL COMMENT '区块号:2242969',
+          `block_timestamp` int(11) DEFAULT NULL COMMENT '区块打包时间:1625209788',
+          `hash` varchar(70) DEFAULT NULL COMMENT '区块hash:0x01ef73c2a08f44e902f45f0e6961143076db5c76c90704467c233e8550dc6865',
+          `parent_hash` varchar(70) DEFAULT NULL COMMENT '父hash:0x93d0c198449410222354ebe20d968ec879091658219976856ba217ef7d686576',
+          `event_count` int(11) DEFAULT NULL COMMENT '事件数:11',
+          `extrinsics_count` int(11) DEFAULT NULL COMMENT '交易数:12',
+          `state_root` varchar(70) DEFAULT NULL COMMENT '状态根:0x2c2f25b578f12c077a2d68faf07fe79116ab934368769698dcae7a46bd09d3f8',
+          `extrinsics_root` varchar(70) DEFAULT NULL COMMENT '交易根:0x65514dede91c9fd870ab539eef95be1a42c52dbedd4949b242d6944011bde38d',
+          `spec_version` int(11) DEFAULT NULL COMMENT '运行时版本:26',
+          `validator` varchar(55) DEFAULT NULL COMMENT '验证人地址:5FBeV6U8HLrJnqK8j28LtB2icAGHiChV5zYHvptM2BU8SUD9',
+          `account_display` text COMMENT '验证人json:{address: "5FBeV6U8HLrJnqK8j28LtB2icAGHiChV5zYHvptM2BU8SUD9", display: "1Miner矿池-11", judgements: null,…}',
+          `time_created` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+          `time_updated` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
+          PRIMARY KEY (`id`) USING BTREE,
+          UNIQUE KEY `uk_block` (`block_num`) USING BTREE COMMENT '区块号索引',
+          UNIQUE KEY `uk_hash` (`hash`) USING BTREE COMMENT '区块hash索引',
+          KEY `idx_block_timestamp` (`block_timestamp`) USING BTREE COMMENT '区块打包时间索引',
+          KEY `idx_validator` (`validator`) USING BTREE COMMENT '验证人索引'
+        ) ENGINE=InnoDB COMMENT='区块信息_${tableNo}'
+    </update>
+
+
+    <insert id="syncBlock">
+        INSERT INTO `ce_block_${tableNo}`
+        (`finalized`,
+        `block_num`,
+        `block_timestamp`,
+        `hash`,
+        `parent_hash`,
+        `event_count`,
+        `extrinsics_count`,
+        `state_root`,
+        `extrinsics_root`,
+        `spec_version`,
+        `validator`,
+        `account_display`)
+        values
+        <foreach collection="blocks" item="block" index="index" separator=",">
+            (#{block.finalized},
+            #{block.blockNum},
+            #{block.blockTimestamp},
+            #{block.hash},
+            #{block.parentHash},
+            #{block.eventCount},
+            #{block.extrinsicsCount},
+            #{block.stateRoot},
+            #{block.extrinsicsRoot},
+            #{block.specVersion},
+            #{block.validator},
+            #{block.accountDisplay})
+        </foreach>
+    </insert>
+
+    <insert id="syncUpdateBlock">
+        INSERT INTO `ce_block_${tableNo}`
+        (`finalized`,
+        `block_num`,
+        `block_timestamp`,
+        `hash`,
+        `parent_hash`,
+        `event_count`,
+        `extrinsics_count`,
+        `state_root`,
+        `extrinsics_root`,
+        `spec_version`,
+        `validator`,
+        `account_display`)
+        values
+        <foreach collection="blocks" item="block" index="index" separator=",">
+            (#{block.finalized},
+            #{block.blockNum},
+            #{block.blockTimestamp},
+            #{block.hash},
+            #{block.parentHash},
+            #{block.eventCount},
+            #{block.extrinsicsCount},
+            #{block.stateRoot},
+            #{block.extrinsicsRoot},
+            #{block.specVersion},
+            #{block.validator},
+            #{block.accountDisplay})
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+        finalized = values(finalized),
+        block_num = values(block_num),
+        block_timestamp = values(block_timestamp),
+        hash = values(hash),
+        parent_hash = values(parent_hash),
+        event_count = values(event_count),
+        extrinsics_count = values(extrinsics_count),
+        state_root = values(state_root),
+        extrinsics_root = values(extrinsics_root),
+        spec_version = values(spec_version),
+        validator = values(validator),
+        account_display = values(account_display)
+    </insert>
+
+    <select id="getTotalCount" resultType="crust.explorer.pojo.vo.TableVo">
+        select 0 count, 0 tableNo from dual union all
+        <foreach collection="tableNos" item="tableNo" index="index" separator="union all">
+            select count(block_num) count, ${tableNo} tableNo from ce_block_${tableNo}
+        </foreach>
+    </select>
+
+    <select id="getByBlockNum" resultType="crust.explorer.pojo.vo.BlockVO">
+        select
+            a.`finalized`,
+            a.`block_num`,
+            a.`block_timestamp`,
+            a.`hash`,
+            a.`parent_hash`,
+            a.`event_count`,
+            a.`extrinsics_count`,
+            a.`state_root`,
+            a.`extrinsics_root`,
+            a.`spec_version`,
+            a.`validator`,
+            a.`account_display`
+         from ce_block_${tableNo} a where block_num = #{blockNum}
+    </select>
+
+    <select id="getBlocksPage" resultType="crust.explorer.pojo.vo.BlockVO">
+        select
+            a.`finalized`,
+            a.`block_num`,
+            a.`block_timestamp`,
+            a.`hash`,
+            a.`parent_hash`,
+            a.`event_count`,
+            a.`extrinsics_count`,
+            a.`state_root`,
+            a.`extrinsics_root`,
+            a.`spec_version`,
+            a.`validator`,
+            a.`account_display`
+         from ce_block_${tableNo} a limit #{beginIndex},#{pageSize}
+    </select>
+
+    <select id="listBlocksPage" resultType="crust.explorer.pojo.vo.BlockVO">
+        select c.* from(
+        <foreach collection="pageTables" item="pageTable" index="index" separator="union all">
+            select
+            a.`finalized`,
+            a.`block_num`,
+            a.`block_timestamp`,
+            a.`hash`,
+            a.`parent_hash`,
+            a.`event_count`,
+            a.`extrinsics_count`,
+            a.`state_root`,
+            a.`extrinsics_root`,
+            a.`spec_version`,
+            a.`validator`,
+            a.`account_display`
+            from ce_block_${pageTable.tableNo} a, (select id from ce_block_${pageTable.tableNo} order by block_num desc
+            limit #{pageTable.begin},#{pageTable.pageSize}) b where a.id in (b.id)
+        </foreach>
+        ) c order by c.block_num desc
+    </select>
+
+    <select id="getCountBlock" resultType="java.lang.Integer">
+        select sum(blockCount) blockCount from
+        <foreach collection="tableNos" item="tableNo" index="index" open="(" separator="union all" close=")">
+            <![CDATA[
+                select count(id) blockCount from ce_block_${tableNo}
+                where block_timestamp >= #{beginTime} and block_timestamp <= #{endTime}
+            ]]>
+        </foreach>
+        a
+    </select>
+
+    <select id="getBlockByHash" resultType="crust.explorer.pojo.vo.BlockVO">
+        select c.* from(
+        <foreach collection="tableNos" item="tableNo" index="index" separator="union all">
+            select
+            a.`finalized`,
+            a.`block_num`,
+            a.`block_timestamp`,
+            a.`hash`,
+            a.`parent_hash`,
+            a.`event_count`,
+            a.`extrinsics_count`,
+            a.`state_root`,
+            a.`extrinsics_root`,
+            a.`spec_version`,
+            a.`validator`,
+            a.`account_display`
+            from ce_block_${tableNo} a where a.hash = #{hash}
+        </foreach>
+        ) c limit 1
+    </select>
+</mapper>

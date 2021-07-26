@@ -1,0 +1,63 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="crust.explorer.mapper.NominatorMapper">
+
+    <insert id="syncUpdateNominators">
+        INSERT INTO `ce_nominator`
+        (`era`,
+        `nominator_rank`,
+        `bonded`,
+        `nominator_address`,
+        `validator_address`,
+        `account_display`,
+        `quotient` )
+        values
+        <foreach collection="nominators" item="nominator" index="index" separator=",">
+            (#{nominator.era},
+            #{nominator.nominatorRank},
+            #{nominator.bonded},
+            #{nominator.nominatorAddress},
+            #{nominator.validatorAddress},
+            #{nominator.accountDisplay},
+            #{nominator.quotient})
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+        era = values(era),
+        nominator_rank = values(nominator_rank),
+        bonded = values(bonded),
+        nominator_address = values(nominator_address),
+        validator_address = values(validator_address),
+        account_display = values(account_display),
+        quotient = values(quotient)
+    </insert>
+
+    <delete id="removeLongAgoData">
+       <![CDATA[
+                delete from ce_nominator a where a.era < (select b.maxEra from (select ifnull(max(`era`),0) maxEra from ce_nominator) b)
+        ]]>
+    </delete>
+
+    <select id="listPageByValidateAddress" resultType="crust.explorer.pojo.vo.NominatorVO">
+        select
+            a.`era`,
+            a.`nominator_rank`,
+            a.`bonded`,
+            a.`nominator_address`,
+            a.`validator_address`,
+            a.`account_display`,
+            truncate(a.`quotient`,4) quotient
+        from ce_nominator a
+        where a.validator_address = #{address}
+        and a.`era` = (select max(`era`) from ce_nominator)
+        order by a.`nominator_rank`
+    </select>
+
+    <select id="getNumberGuarantee" resultType="int">
+        select count(a.countid) from (
+		    select count(id) countid from ce_nominator where era = (select max(era) from ce_nominator) group by nominator_address
+	    ) a;
+    </select>
+
+</mapper>

@@ -1,0 +1,198 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="crust.explorer.mapper.TransferMapper">
+
+    <update id="createTable" parameterType="String">
+        CREATE TABLE If Not Exists `ce_transfer_${tableNo}` (
+          `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
+          `amount` decimal(50,20) DEFAULT NULL COMMENT '数量:0.00018004716',
+          `asset_symbol` varchar(20) DEFAULT NULL COMMENT '币种',
+          `event_index` varchar(15) DEFAULT NULL COMMENT '事件index:2243376-1',
+          `event_sort` varchar(15) DEFAULT NULL COMMENT '事件sort:22433760001',
+          `extrinsic_index` varchar(15) DEFAULT NULL COMMENT '交易index:2243376-2',
+          `block_num` int(11) DEFAULT NULL COMMENT '区块号:2243376',
+          `block_timestamp` int(11) DEFAULT NULL COMMENT '区块打包时间:1625212242',
+          `module` varchar(100) DEFAULT NULL COMMENT '操作:balances',
+          `hash` varchar(70) DEFAULT NULL COMMENT '(交易)hash:0x042af912e370c505c6aa4f693916c941c40bb250208dd78df0f113bc0cb6aeed',
+          `from` varchar(55) DEFAULT NULL COMMENT 'from:5ELHphbnebMSstj6yREdTwU8A2N8MsMyR4oi14o95uioGBaQ',
+          `to` varchar(55) DEFAULT NULL COMMENT 'to:5EYCAe5g8L3FKZ6gRSZ3m85g9fjGYcfv8T4Z4RosnT7hghbx',
+          `fee` decimal(50,20) DEFAULT NULL COMMENT '手续费:30310872',
+          `nonce` int(11) DEFAULT NULL COMMENT '随机数:107-------------------------',
+          `finalized` tinyint(1) DEFAULT NULL COMMENT '状态：1-已确认，0-确认中',
+          `success` tinyint(1) DEFAULT NULL COMMENT '结果：1-成功，0-失败',
+          `time_created` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+          `time_updated` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
+          PRIMARY KEY (`id`) USING BTREE,
+          UNIQUE KEY `uk_event_index` (`event_index`) USING BTREE COMMENT '事件索引',
+          UNIQUE KEY `uk_event_sort` (`event_sort`) USING BTREE COMMENT '事件sort索引',
+          KEY `idx_block` (`block_num`) USING BTREE COMMENT '块索引',
+          KEY `idx_block_timestamp` (`block_timestamp`) USING BTREE COMMENT '区块打包时间索引',
+          KEY `idx_extrinsic_index` (`extrinsic_index`) USING BTREE COMMENT '交易索引',
+          KEY `idx_hash` (`hash`) USING BTREE COMMENT 'hash索引',
+          KEY `idx_to` (`to`) USING BTREE COMMENT 'to索引',
+          KEY `idx_from` (`from`) USING BTREE COMMENT 'from索引'
+        ) ENGINE=InnoDB COMMENT='转账信息表_${tableNo}'
+    </update>
+
+
+    <select id="getTotalCount" resultType="crust.explorer.pojo.vo.TableVo">
+        select 0 count, 0 tableNo from dual union all
+        <foreach collection="tableNos" item="tableNo" index="index" separator="union all">
+            select count(block_num) count, ${tableNo} tableNo from ce_transfer_${tableNo}
+            <if test="address!=null and address!=''">
+                where `from` = #{address} or `to` = #{address}
+            </if>
+        </foreach>
+    </select>
+
+    <select id="listTransfersPage" resultType="crust.explorer.pojo.vo.TransferVO">
+        select c.* from(
+        <foreach collection="pageTables" item="pageTable" index="index" separator="union all">
+            select
+            a.`amount`,
+            a.`asset_symbol`,
+            a.`event_index`,
+            a.`event_sort`,
+            a.`extrinsic_index`,
+            a.`block_num`,
+            a.`block_timestamp`,
+            a.`module`,
+            a.`hash`,
+            a.`from`,
+            a.`to`,
+            a.`fee`,
+            a.`nonce`,
+            a.`finalized`,
+            a.`success`
+            from ce_transfer_${pageTable.tableNo} a, (select id from ce_transfer_${pageTable.tableNo}
+            <if test="address!=null and address!=''">
+                where `from` = #{address} or `to` = #{address}
+            </if>
+            order by event_sort desc limit #{pageTable.begin},#{pageTable.pageSize}) b
+            where a.id in (b.id)
+        </foreach>
+        ) c order by c.event_sort desc
+    </select>
+
+    <select id="listTransfersAutoPage" resultType="crust.explorer.pojo.vo.TransferVO">
+        SELECT * FROM ce_transfer_${tableNo} WHERE block_num = #{blockNum} order by event_sort
+    </select>
+
+    <select id="getInfo" resultType="crust.explorer.pojo.vo.TransferVO">
+        SELECT * FROM ce_transfer_${tableNo} WHERE block_num = #{blockNum} and event_index = #{eventIndex}
+    </select>
+
+    <insert id="syncTransfer">
+        INSERT INTO `ce_transfer_${tableNo}`
+        (`amount`,
+        `asset_symbol`,
+        `event_index`,
+        `event_sort`,
+        `extrinsic_index`,
+        `block_num`,
+        `block_timestamp`,
+        `module`,
+        `hash`,
+        `from`,
+        `to`,
+        `fee`,
+        `nonce`,
+        `finalized`,
+        `success`)
+        values
+        <foreach collection="transfers" item="transfer" index="index" separator=",">
+            (#{transfer.amount},
+            #{transfer.assetSymbol},
+            #{transfer.eventIndex},
+            #{transfer.eventSort},
+            #{transfer.extrinsicIndex},
+            #{transfer.blockNum},
+            #{transfer.blockTimestamp},
+            #{transfer.module},
+            #{transfer.hash},
+            #{transfer.from},
+            #{transfer.to},
+            #{transfer.fee},
+            #{transfer.nonce},
+            #{transfer.finalized},
+            #{transfer.success})
+        </foreach>
+    </insert>
+
+    <insert id="syncUpdateTransfer">
+        INSERT INTO `ce_transfer_${tableNo}`
+        (`amount`,
+        `asset_symbol`,
+        `event_index`,
+        `event_sort`,
+        `extrinsic_index`,
+        `block_num`,
+        `block_timestamp`,
+        `module`,
+        `hash`,
+        `from`,
+        `to`,
+        `fee`,
+        `nonce`,
+        `finalized`,
+        `success`)
+        values
+        <foreach collection="transfers" item="transfer" index="index" separator=",">
+            (#{transfer.amount},
+            #{transfer.assetSymbol},
+            #{transfer.eventIndex},
+            #{transfer.eventSort},
+            #{transfer.extrinsicIndex},
+            #{transfer.blockNum},
+            #{transfer.blockTimestamp},
+            #{transfer.module},
+            #{transfer.hash},
+            #{transfer.from},
+            #{transfer.to},
+            #{transfer.fee},
+            #{transfer.nonce},
+            #{transfer.finalized},
+            #{transfer.success})
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+        amount = values(amount),
+        asset_symbol = values(asset_symbol),
+        event_index = values(event_index),
+        event_sort = values(event_sort),
+        extrinsic_index = values(extrinsic_index),
+        block_num = values(block_num),
+        block_timestamp = values(block_timestamp),
+        `module` = values(`module`),
+        hash = values(hash),
+        `from` = values(`from`),
+        `to` = values(`to`),
+        fee = values(fee),
+        nonce = values(nonce),
+        finalized = values(finalized),
+        success = values(success)
+    </insert>
+
+    <select id="getCountTransfer" resultType="java.lang.Integer">
+        select sum(transferCount) transferCount from
+        <foreach collection="tableNos" item="tableNo" index="index" open="(" separator="union all" close=")">
+            <![CDATA[
+                select count(id) transferCount from ce_transfer_${tableNo}
+                where block_timestamp >= #{beginTime} and block_timestamp < #{endTime}
+            ]]>
+        </foreach>
+        a
+    </select>
+
+    <select id="getSumTransferAmount" resultType="java.math.BigDecimal">
+        select sum(transferAmount) transferAmount from
+        <foreach collection="tableNos" item="tableNo" index="index" open="(" separator="union all" close=")">
+            <![CDATA[
+                select sum(amount) transferAmount from ce_transfer_${tableNo}
+                where block_timestamp >= #{beginTime} and block_timestamp < #{endTime}
+            ]]>
+        </foreach>
+        a
+    </select>
+</mapper>

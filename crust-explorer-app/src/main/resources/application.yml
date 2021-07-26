@@ -1,0 +1,9 @@
+server:
+  port: 6933
+  servlet:
+    context-path: /crust-explorer/api
+spring:
+  profiles:
+    active: dev,ws
+#    active: test,ws
+

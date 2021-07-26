@@ -1,0 +1,106 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="crust.explorer.mapper.AccountMapper">
+
+    <insert id="syncUpdateAccounts">
+        INSERT INTO `ce_account`
+        (`account_type`,
+        `address`,
+        `email`,
+        `twitter`,
+        `web`,
+        `display`,
+        `account_display`,
+        `judgements`,
+        `balance`,
+        `balance_lock`,
+        `bonded`,
+        `reserved`,
+        `democracy_lock`,
+        `election_lock`,
+        `unbonding`,
+        `is_council_member`,
+        `is_evm_contract`,
+        `is_registrar`,
+        `is_techcomm_member`,
+        `legal`,
+        `nonce` )
+        values
+        <foreach collection="accounts" item="account" index="index" separator=",">
+            (#{account.accountType},
+            #{account.address},
+            #{account.email},
+            #{account.twitter},
+            #{account.web},
+            #{account.display},
+            #{account.accountDisplay},
+            #{account.judgements},
+            #{account.balance},
+            #{account.balanceLock},
+            #{account.bonded},
+            #{account.reserved},
+            #{account.democracyLock},
+            #{account.electionLock},
+            #{account.unbonding},
+            #{account.isCouncilMember},
+            #{account.isEvmContract},
+            #{account.isRegistrar},
+            #{account.isTechcommMember},
+            #{account.legal},
+            #{account.nonce})
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+        `account_type` = values(`account_type`),
+        `address` = values(`address`),
+        `email` = values(`email`),
+        `twitter` = values(`twitter`),
+        `web` = values(`web`),
+        `display` = values(`display`),
+        `account_display` = values(`account_display`),
+        `judgements` = values(`judgements`),
+        `balance` = values(`balance`),
+        `balance_lock` = values(`balance_lock`),
+        `bonded` = values(`bonded`),
+        `reserved` = values(`reserved`),
+        `democracy_lock` = values(`democracy_lock`),
+        `election_lock` = values(`election_lock`),
+        `unbonding` = values(`unbonding`),
+        `is_council_member` = values(`is_council_member`),
+        `is_evm_contract` = values(`is_evm_contract`),
+        `is_registrar` = values(`is_registrar`),
+        `is_techcomm_member` = values(`is_techcomm_member`),
+        `legal` = values(`legal`),
+        `nonce` = values(`nonce`)
+    </insert>
+
+    <select id="getAccountByHash" resultType="crust.explorer.pojo.vo.AccountVO">
+        select
+            a.`account_type`,
+            (case when (select count(id) from ce_member where (account_address = #{hash} or controller_account_address = #{hash}) and role =1) > 0 then 1
+            when (select count(id) from ce_member where (account_address = #{hash} or controller_account_address = #{hash}) and role =2) > 0 then 2
+            when (select count(id) from ce_nominator where nominator_address = #{hash})>0 then 3 else 4 end) role,
+            a.`address`,
+            a.`email`,
+            a.`twitter`,
+            a.`web`,
+            a.`display`,
+            a.`account_display`,
+            a.`judgements`,
+            a.`balance`,
+            a.`balance_lock`,
+            a.`bonded`,
+            a.`reserved`,
+            a.`democracy_lock`,
+            a.`election_lock`,
+            a.`unbonding`,
+            a.`is_council_member`,
+            a.`is_evm_contract`,
+            a.`is_registrar`,
+            a.`is_techcomm_member`,
+            a.`legal`,
+            a.`nonce`
+        from ce_account a where a.address = #{hash} order by a.account_type limit 1
+    </select>
+</mapper>

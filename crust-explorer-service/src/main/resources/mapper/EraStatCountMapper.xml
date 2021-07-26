@@ -1,0 +1,42 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="crust.explorer.mapper.EraStatCountMapper">
+
+    <insert id="syncUpdateEraCounts">
+        INSERT INTO `ce_era_stat_count`
+        ( `era`,
+        `validator_stash`,
+        `start_block_num`,
+        `end_block_num`,
+        `start_block_timestamp`,
+        `end_block_timestamp`,
+        `block_produced`,
+        `block_produced_count`,
+        `status` )
+        values
+        <foreach collection="eras" item="era" index="index" separator=",">
+            (#{era.era},
+            #{era.validatorStash},
+            #{era.startBlockNum},
+            #{era.endBlockNum},
+            #{era.startBlockTimestamp},
+            #{era.endBlockTimestamp},
+            #{era.blockProduced},
+            #{era.blockProducedCount},
+            #{era.status} )
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+        era = values(era),
+        validator_stash = values(validator_stash),
+        start_block_num = values(start_block_num),
+        end_block_num = values(end_block_num),
+        start_block_timestamp = values(start_block_timestamp),
+        end_block_timestamp = values(end_block_timestamp),
+        block_produced = values(block_produced),
+        block_produced_count = values(block_produced_count),
+        status = values(status)
+    </insert>
+
+</mapper>
